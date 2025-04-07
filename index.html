@@ -1,0 +1,307 @@
+   <!--  mortal.fr a capstone by Nikola Lubura.-->
+   <!--  CTCH 499 @ University of Regina -->
+   <!--  Encoding and Decoding Bias through social and creative coding commentary -->
+   <!--  3/31/2025 -->
+
+
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>Mortal.fr</title>
+  <style>
+    /* Basic page styling - dark theme with neon green text */
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Courier New', monospace;
+      background-color: #0f0f0f;
+      color: #00ff99;
+      text-align: center;
+    }
+
+    /* Fake Loading Screen - Deceptive*/
+    #loadingScreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #0f0f0f;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 1s ease-in-out;
+      z-index: 9999;
+    }
+    /* Loading screen image styling*/
+
+    #loadingScreen img {
+      width: 150px;
+      height: auto;
+      margin-bottom: 20px;
+    }
+
+    /* Loading Screen text styling*/
+
+    #loadingText {
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    /* Hide the loading screen after fade */
+    .hide {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* Header styling infomration*/
+    header {
+      font-size: 24px;
+      font-weight: bold;
+      padding: 15px;
+      background-color: #00ff99;
+      color: #0f0f0f;
+      margin-bottom: 20px;
+    }
+
+    /* Main UI container */
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 20px;
+      max-width: 600px;
+      margin: auto;
+    }
+
+    /* Character Matrix Grid - Numbers and letters and such */
+    .matrix {
+      display: grid;
+      grid-template-columns: repeat(15, 30px);
+      gap: 2px;
+      margin-bottom: 20px;
+      padding: 10px;
+      border: 1px solid #00ff99;
+    }
+
+    .cell {
+      width: 30px;
+      height: 30px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border: 1px solid #00ff99;
+      font-size: 14px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .cell.selected {
+      background-color: #00ff99;
+      color: #0f0f0f;
+    }
+
+    .bold {
+      font-weight: 900;
+    }
+
+    .italic {
+      font-style: italic;
+      font-weight: 500;
+    }
+
+    /* UI Buttons like clear, about etc. */
+    #generate, #clear, #aboutButton {
+      background-color: #00ff99;
+      color: #0f0f0f;
+      font-size: 16px;
+      padding: 10px 20px;
+      border: none;
+      cursor: pointer;
+      margin: 5px;
+      width: 150px;
+    }
+
+    /* Canvas for spirographs */
+    canvas {
+      margin-top: 20px;
+      background: #0f0f0f;
+      border: 1px solid #00ff99;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="loadingScreen">
+    <img src="logo.svg" alt="Mortal.fr Logo">
+    <div id="loadingText">Loading...</div>
+  </div>
+
+  <header>Mortal.fr will use the webcam as colour input. No data is stored, shared or otherwise used.</header>
+
+  <div class="container">
+    <video id="video" width="200" height="150" autoplay style="display: none;"></video>
+
+    <div class="matrix" id="grid"></div>
+
+    <button id="generate">GENERATE</button>
+    <button id="clear">CLEAR</button>
+    <button id="aboutButton" onclick="window.location.href='https://nikola.nyc/mortal'">ABOUT</button>
+
+    <canvas id="spiroCanvas" width="400" height="400"></canvas>
+  </div>
+
+  <audio id="backgroundMusic" loop>
+    <source src="music.mp3" type="audio/mpeg">
+    Your browser does not support the audio element.
+  </audio>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    // Ensure the loading screen disappears
+    setTimeout(() => {
+      let loadingScreen = document.getElementById('loadingScreen');
+      loadingScreen.classList.add('hide');
+
+      setTimeout(() => {
+        loadingScreen.remove();
+      }, 1000);
+    }, 2000);
+
+    /* This runs the camera input */
+    const video = document.getElementById('video');
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    let detectedColor = "#00ff99"; // Default color
+
+    navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+      video.srcObject = stream;
+    }).catch(error => {
+      console.error("Camera access denied:", error);
+    });
+
+    /* Extracts dominant colour */
+    function extractColor() {
+      if (!video.videoWidth || !video.videoHeight) return;
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      let pixels = imageData.data;
+
+      let r = 0, g = 0, b = 0, count = 0;
+      for (let i = 0; i < pixels.length; i += 4 * 100) { // Skip pixels for performance
+        r += pixels[i];
+        g += pixels[i + 1];
+        b += pixels[i + 2];
+        count++;
+      }
+
+      r = Math.floor(r / count);
+      g = Math.floor(g / count);
+      b = Math.floor(b / count);
+
+      detectedColor = `rgb(${r}, ${g}, ${b})`;
+    }
+
+    /* Runs the colour detection */
+    setInterval(extractColor, 500);     /* updates every 5 seconds */
+
+
+    const grid = document.getElementById('grid');
+    const chars = '123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const styles = ['normal', 'bold', 'italic'];
+
+    /* pops the grid with random letters and such */
+    for (let i = 0; i < 150; i++) {
+      const cell = document.createElement('div');
+      cell.classList.add('cell');
+      cell.textContent = chars.charAt(Math.floor(Math.random() * chars.length));
+
+      let style = styles[Math.floor(Math.random() * styles.length)];
+      if (style !== 'normal') cell.classList.add(style);
+
+    /* fun floating effect */
+      cell.addEventListener('mouseenter', () => {
+        cell.style.transform = 'translateY(-5px)';
+        cell.style.transition = 'transform 0.2s ease-out';
+      });
+
+      cell.addEventListener('mouseleave', () => {
+        cell.style.transform = 'translateY(0)';
+      });
+
+      cell.addEventListener('click', () => cell.classList.toggle('selected'));
+
+      grid.appendChild(cell);
+    }
+
+    /* keeps generating spiros */
+    document.getElementById('generate').addEventListener('click', () => {
+      const selected = document.querySelectorAll('.cell.selected');
+      if (selected.length === 0) return;
+
+      let boldCount = 0, italicCount = 0;
+      selected.forEach(cell => {
+        if (cell.classList.contains('bold')) boldCount++;
+        if (cell.classList.contains('italic')) italicCount++;
+      });
+
+      const spiroCanvas = document.getElementById('spiroCanvas');
+      const spiroCtx = spiroCanvas.getContext('2d');
+      spiroCtx.clearRect(0, 0, spiroCanvas.width, spiroCanvas.height);
+      spiroCtx.resetTransform();
+      spiroCtx.translate(200, 200);
+      spiroCtx.strokeStyle = detectedColor; // Now always uses the most recent detected color
+      spiroCtx.lineWidth = 1 + boldCount;
+
+      const R = 100 + selected.length;
+      const r = 30 + Math.floor(selected.length / 2);
+      const l = 0.7 + italicCount * 0.2;
+
+      spiroCtx.beginPath();
+      for (let t = 0; t < Math.PI * 2 * 10; t += 0.02) {
+        const x = (R - r) * Math.cos(t) + l * r * Math.cos(((R - r) / r) * t);
+        const y = (R - r) * Math.sin(t) - l * r * Math.sin(((R - r) / r) * t);
+        spiroCtx.lineTo(x, y);
+      }
+      spiroCtx.stroke();
+    });
+
+    /* clears canvas */
+    document.getElementById('clear').addEventListener('click', () => {
+      const canvas = document.getElementById('spiroCanvas');
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#0f0f0f';
+      ctx.resetTransform();
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    });
+
+    /* BG Music Autoplay workround kinda buggy so sorry */
+    const audio = document.getElementById("backgroundMusic");
+    audio.volume = 0.5;
+
+    function tryPlayMusic() {
+      audio.play().then(() => {
+        console.log("Background music playing.");
+      }).catch(() => {
+        console.log("User interaction required for music.");
+        document.body.addEventListener("click", () => {
+          audio.play();
+        }, { once: true });
+      });
+    }
+
+    tryPlayMusic();
+  });
+</script>
+
+
+</body>
+</html>
+
